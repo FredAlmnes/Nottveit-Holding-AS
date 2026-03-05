@@ -17,10 +17,13 @@ export async function GET() {
             .single();
 
         if (roundError) {
+            console.error("Round error code:", roundError.code, roundError.message);
             if (roundError.code === 'PGRST116') {
+                // Ingen aktive runder funnet
                 return NextResponse.json({ activeRound: null, candidates: [] });
             }
-            throw roundError;
+            // Returner full feilinformasjon for debugging
+            return NextResponse.json({ error: roundError.message, code: roundError.code, hint: roundError.hint }, { status: 500 });
         }
 
         // 2. Hent kandidatene for den aktive runden (med gjeste-info)
@@ -33,15 +36,18 @@ export async function GET() {
             `)
             .eq('round_id', activeRound.id);
 
-        if (candidatesError) throw candidatesError;
+        if (candidatesError) {
+            console.error("Candidates error:", candidatesError);
+            return NextResponse.json({ error: candidatesError.message, code: candidatesError.code }, { status: 500 });
+        }
 
         // 3. Omformuler litt for frontendens skyld
-        const formattedCandidates = candidates.map((c: any) => ({
+        const formattedCandidates = (candidates || []).map((c: any) => ({
             candidate_id: c.id,
             votes: c.votes,
-            guest_id: c.guests.id,
-            name: c.guests.name,
-            image_url: c.guests.image_url
+            guest_id: c.guests?.id,
+            name: c.guests?.name,
+            image_url: c.guests?.image_url
         }));
 
         // 4. Hent forrige vinner
